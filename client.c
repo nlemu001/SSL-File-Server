@@ -1,18 +1,22 @@
 #include <stdlib.h>
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
-#include <fcntl.h>
-#include <signal.h>
-#include <unistd.h>
 #include <string.h>
 
 #include <openssl/ssl.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#include <openssl/rand.h>
+#include <openssl/rsa.h>
+#include <openssl/pem.h>
+#include <openssl/dh.h>	
 
+void print_hex(unsigned char * ptr, int sz)
+{
+  int j;
+  for (j = 0; j < sz; j++)
+    printf("%02X", ptr[j] & 0xFF);
+  printf("\n\n");
+}
 // Removes '=' and '-' from argumanets to obatin server
 // address and port number
 int remove_eq(char * new_array, char * arg)
@@ -42,16 +46,6 @@ int main(int argc, char * argv[])
 	SSL * ssl;
 	SSL_CTX * ctx;
 	
-	SSL_load_error_strings();
-	ERR_load_BIO_strings();
-	OpenSSL_add_all_algorithms();
-	
-	if(!SSL_library_init())
-	{
-		printf("Error initializing OpenSSL\n");
-		return 1;
-	}
-	
 	if(argc < 5)
 	{
 		printf("Not enough arguments!\n");
@@ -75,8 +69,19 @@ int main(int argc, char * argv[])
 	//printf("File Path: %s\n", path);
 	//printf("Address: %s\n\n", address);
 
-	// Setting up Client context
-	ctx = SSL_CTX_new(SSLv23_method());
+// Setting up Client context
+
+	SSL_load_error_strings();
+	ERR_load_BIO_strings();
+	OpenSSL_add_all_algorithms();
+	
+	if(!SSL_library_init())
+	{
+		printf("Error initializing OpenSSL\n");
+		return 1;
+	}
+
+	ctx = SSL_CTX_new(SSLv23_client_method());
 	if(!ctx)
 	{
 	  printf("Error setting up client SSL context\n");
@@ -94,7 +99,6 @@ int main(int argc, char * argv[])
 	}
 	
 	bio = BIO_new_connect(address);
-	//bio = BIO_set_conn_int_port(bio, port_number);
 	if(bio == NULL)
 	{
 	  printf("There was a problem creating the BIO object\n");
@@ -118,33 +122,78 @@ int main(int argc, char * argv[])
 	  printf("Error connecting to server\n");
 	  return 1;
 	}
-	
-
+// End Create Client Context
 	printf("Connection successful!\n");
+
+// Generating random challenge
+	unsigned char challenge[64];
+	if(RAND_bytes(challenge, 64) != 1)
+	{
+	  printf("Error generating random challenge.\n");
+	  ERR_print_errors_fp(stderr);
+	  return 1;
+	}
 	
-	// Writing to server
-	char buf[1024];
-	strcpy(buf, "This is client.");
-	if(SSL_write(ssl, buf, sizeof buf) < 0)
+	printf("Unencrypted Challenge: ");
+	
+	print_hex(challenge, 64);
+	
+	//printf("Challenge: %s\n\n", challenge);
+	BIO * public_key = BIO_new_file("pubrsa.pem", "r");
+	if(public_key == NULL)
+	{
+	  printf("Error reading in public key.\n");
+	  return 1;
+	}
+	RSA * p_key =  PEM_read_bio_RSA_PUBKEY(public_key, NULL, 0, NULL);
+	
+	int rsa_size = RSA_size(p_key);
+	unsigned char encrypted_challenge[rsa_size - 11];
+	int enc_size = RSA_public_encrypt(64, challenge, encrypted_challenge, p_key, RSA_PKCS1_PADDING);
+	if( enc_size == -1)
+	{
+	  printf("Error encrypting challenge.\n");
+	  return 1;
+	}
+	printf("RSA ENC size: %d\n", enc_size);
+	printf("Encrypted Challenge: \n\n");
+	
+	print_hex(encrypted_challenge, enc_size);
+	
+// Writing challenge to server
+	
+	//char buf[1024];
+	//memset(buf, 0, 1024);
+	//strncpy(buf, encrypted_challenge, sizeof encrypted_challenge);
+	//for (j = 0; j < enc_size; j++)
+	//    printf("%02X", buf[j] & 0xFF);
+	//printf("\n\n");
+	if(SSL_write(ssl, encrypted_challenge, enc_size) < 0)
 	{
 	  printf("Error writing to server\n");
 	  return 1;
 	}
-	
-	char in_buff[1024];
-	if(SSL_read(ssl, in_buff, 1024) < 0)
+
+// End Writing to server
+
+// Reading in server response
+	unsigned char in_buff[enc_size];
+	if(SSL_read(ssl, in_buff, enc_size) < 0)
 	{
 	  printf("Error reading from server\n");
 	  return 1;
 	}
-	printf("Server says: %s\n", in_buff);
-	
+	printf("Server says: \n\n");//, in_buff);
+	print_hex(in_buff, sizeof in_buff);
+// End reading in server response
+
+// Freeing resources
 	SSL_shutdown(ssl);
 	SSL_free(ssl);
 	printf("SSL connection closed\n");
 	SSL_CTX_free(ctx);
 	printf("SSL context freed\n");
-	//BIO_free_all(bio);
 	printf("Client finished\n");
 	return 0;
 }
+
