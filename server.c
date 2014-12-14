@@ -9,7 +9,9 @@
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
 #include <openssl/dh.h>	
+#include <openssl/sha.h>
 
+// Prints bits into a HEX string
 void print_hex(unsigned char * ptr, int sz)
 {
   int j;
@@ -172,14 +174,39 @@ int main(int argc, char * argv[])
 	    print_hex(decrypted_challenge, dec_size);
     
     // End Decryption
-	    //r = SSL_write(ssl, answer, r);
-
+    
+    // Hashing the decrypted challenge
+    
+	    unsigned char hash[SHA_DIGEST_LENGTH];
+	    SHA1(decrypted_challenge, dec_size, hash);
+	    
+	    printf("Hash value of decrypted_challenge: ");
+	    print_hex(hash, SHA_DIGEST_LENGTH);
+	    
+    // End Hashing the decypted challenge
+    
+    // Signing the hashed challenge
+	    unsigned char signed_challenge[rsa_size - 11];
+	    int signed_size = RSA_private_encrypt(SHA_DIGEST_LENGTH, hash, signed_challenge, p_key, RSA_PKCS1_PADDING);
+	    if( signed_size == -1)
+	    {
+	      printf("Error decrypting challenge.\n");
+	      return 1;
+	    }
+	    printf("RSA Signed size: %d\n", signed_size);
+	    printf("Signed Challenge: \n");
+	    
+    // Sending signed hashed challenge to client
+	    print_hex(signed_challenge, signed_size);
+	    r = SSL_write(ssl, signed_challenge, signed_size);
 	    printf("Bytes sent: %d\n", r);
+    // End sending signed hashed challenge to client
+
 	    SSL_shutdown(ssl);
 	    SSL_free(ssl);
 
 	  }
-		
-	}	
+	
+	}
 	return 0;
 }
