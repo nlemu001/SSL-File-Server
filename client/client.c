@@ -163,7 +163,7 @@ int main(int argc, char * argv[])
 	  printf("Error encrypting challenge.\n");
 	  return 1;
 	}
-	printf("RSA ENC size: %d\n", enc_size);
+//	printf("RSA ENC size: %d\n", enc_size);
 	printf("Encrypted Challenge: \n\n");
 	print_hex(encrypted_challenge, enc_size);
 
@@ -256,7 +256,7 @@ int main(int argc, char * argv[])
 	  char file_size[20];
 	  r = SSL_read(ssl, file_size, 20);
 	  long fileSize = atol(file_size);
-	  printf("File length: %lu\n", fileSize);
+	  //printf("File length: %lu\n", fileSize);
 	  
 	  // Receiving file
 	  char new_file[fileSize];
@@ -275,6 +275,7 @@ int main(int argc, char * argv[])
 // Send file to server
 	else if(strcmp(cmd, send) == 0)
 	{
+	  char file_size[20];
 	  FILE * file_to_be_sent = fopen(path, "r");
 	  if(!file_to_be_sent)
 	  {
@@ -282,7 +283,8 @@ int main(int argc, char * argv[])
 	    SSL_shutdown(ssl);
 	    SSL_free(ssl);
 	    SSL_CTX_free(ctx);
-	    SSL_write(ssl, "n", 1);
+	    file_size[0] = 'n';
+	    SSL_write(ssl, file_size, 20);
 	    return 1;
 	  }
 	  else
@@ -295,7 +297,7 @@ int main(int argc, char * argv[])
 	    fread(ret, 1, len, file_to_be_sent);  
 	    fclose(file_to_be_sent);
 	  // send file size to server
-	    char file_size[20];
+	    
 	    sprintf(file_size, "%ld", len);
 	    //printf("File length: %s\n", file_size);
 	    r = SSL_write(ssl, (unsigned *)file_size, 20);

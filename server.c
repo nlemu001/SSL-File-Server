@@ -40,7 +40,7 @@ int main(int argc, char * argv[])
 	strcpy(port, pch);
 	pch = strtok(NULL, "=");
 	strcpy(port, pch);
-	printf("Port: %s\n", port);
+	//printf("Port: %s\n", port);
 	char receive[64] = "receive";
 	char send[64] = "send";
 
@@ -109,7 +109,7 @@ int main(int argc, char * argv[])
 	char * s = "*:";
 	strcpy(serv_address, s);
 	strcat(serv_address, port);
-	printf("BIO Port: %s\n", serv_address);
+	//printf("BIO Port: %s\n", serv_address);
 	bio = BIO_new_accept(serv_address);
 	if(!bio)
 	{
@@ -131,7 +131,7 @@ int main(int argc, char * argv[])
 	  }
 	  else
 	  {
-	    printf("Accepted connection!\n");
+	    printf("Connection accepted!\n");
 	    client = BIO_pop(bio);
 	    if (!(ssl = SSL_new(ctx)))
 	    {
@@ -149,7 +149,7 @@ int main(int argc, char * argv[])
 	    unsigned char buff[1024];
 	    memset(buff, 0, 1024);
 	    int r = SSL_read(ssl, buff, sizeof buff);
-	    printf("Bytes read: %d\n", r);
+	    //printf("Bytes read: %d\n", r);
 	    printf("Received challenge: \n\n");
 	    print_hex(buff, r);
 
@@ -171,7 +171,7 @@ int main(int argc, char * argv[])
 	      printf("Error decrypting challenge.\n");
 	      return 1;
 	    }
-	    printf("RSA DEC size: %d\n", dec_size);
+	    //printf("RSA DEC size: %d\n", dec_size);
 	    printf("Decrypted Challenge: ");
 	    
 	    print_hex(decrypted_challenge, dec_size);
@@ -197,14 +197,14 @@ int main(int argc, char * argv[])
 	      printf("Error decrypting challenge.\n");
 	      return 1;
 	    }
-	    printf("RSA Signed size: %d\n", signed_size);
+	    //printf("RSA Signed size: %d\n", signed_size);
 	    printf("Signed Challenge: \n");
 	    
     // Sending signed hashed challenge to client
     
 	    print_hex(signed_challenge, signed_size);
 	    r = SSL_write(ssl, signed_challenge, signed_size);
-	    printf("Bytes sent: %d\n", r);
+	    //printf("Bytes sent: %d\n", r);
 	    
     // End sending signed hashed challenge to client
     
@@ -222,26 +222,26 @@ int main(int argc, char * argv[])
 	      printf("Sending %s\n", file);
 	      FILE * file_to_be_sent = fopen(file, "r");
 	      if(!file_to_be_sent)
-		printf("File does not exist!\n");
+			printf("File does not exist!\n");
 	      else
 	      {
-		fseek(file_to_be_sent, 0, SEEK_END);  
-		long len = ftell(file_to_be_sent);
-		char *ret = malloc(len);  
-		fseek(file_to_be_sent, 0, SEEK_SET);  
-		fread(ret, 1, len, file_to_be_sent);  
-		fclose(file_to_be_sent);
+			fseek(file_to_be_sent, 0, SEEK_END);  
+			long len = ftell(file_to_be_sent);
+			char *ret = malloc(len);  
+			fseek(file_to_be_sent, 0, SEEK_SET);  
+			fread(ret, 1, len, file_to_be_sent);  
+			fclose(file_to_be_sent);
 		// send file size to client
 		
-		sprintf(file_size, "%ld", len);
+			sprintf(file_size, "%ld", len);
 		//printf("File length: %s\n", file_size);
 		  // send file size
-		r = SSL_write(ssl, (unsigned *)file_size, 20);
+			r = SSL_write(ssl, (unsigned *)file_size, 20);
 		  // send file
-		r = SSL_write(ssl, (unsigned *)ret, len);
-		if(r < 0)
-		  printf("Error sending file!\n");
-		printf("%s sent!\n", file);
+			r = SSL_write(ssl, (unsigned *)ret, len);
+			if(r < 0)
+			  printf("Error sending file!\n");
+			printf("%s sent!\n", file);
 	      }
 	    }
 	    // Receive file from client
@@ -254,18 +254,18 @@ int main(int argc, char * argv[])
 	      r = SSL_read(ssl, file_size, 20);
 	      if(file_size[0] != 'n')
 	      {
-		long fileSize = atol(file_size);
-		printf("File length: %s\n", file_size);
+			long fileSize = atol(file_size);
+//		printf("File length: %s\n", file_size);
 		
 		// Receiving file
-		char new_file[fileSize];
-		r = SSL_read(ssl, new_file, fileSize);
+			char new_file[fileSize];
+			r = SSL_read(ssl, new_file, fileSize);
 		
 		// saving file
-		FILE * file_to_be_saved = fopen(file, "w");
-		fwrite(new_file, 1, fileSize, file_to_be_saved);
-		fclose(file_to_be_saved);
-		printf("%s Received!\n", file);
+			FILE * file_to_be_saved = fopen(file, "w");
+			fwrite(new_file, 1, fileSize, file_to_be_saved);
+			fclose(file_to_be_saved);
+			printf("%s Received!\n", file);
 	      }
 	    }
 	    else
