@@ -238,7 +238,13 @@ int main(int argc, char * argv[])
 		  // send file size
 			r = SSL_write(ssl, (unsigned *)file_size, 20);
 		  // send file
-			r = SSL_write(ssl, (unsigned *)ret, len);
+			long cnt;
+			char * file_ptr = ret;
+			for(cnt = 0; cnt < (len/16384) + 1; cnt++)
+			{
+				r = SSL_write(ssl, (unsigned *)file_ptr, len);
+				file_ptr += 16384;
+			}
 			if(r < 0)
 			  printf("Error sending file!\n");
 			printf("%s sent!\n", file);
@@ -259,10 +265,16 @@ int main(int argc, char * argv[])
 		
 		// Receiving file
 			char new_file[fileSize];
-			r = SSL_read(ssl, new_file, fileSize);
+			char * file_ptr = new_file;
+			long cnt;
+			for(cnt = 0; cnt < (fileSize/16384 + 1); cnt++)
+			{
+				r = SSL_read(ssl, file_ptr, fileSize);
+				file_ptr += 16384;
+			}
 		
 		// saving file
-			FILE * file_to_be_saved = fopen(file, "w");
+			FILE * file_to_be_saved = fopen(file, "a+");
 			fwrite(new_file, 1, fileSize, file_to_be_saved);
 			fclose(file_to_be_saved);
 			printf("%s Received!\n", file);
