@@ -261,7 +261,7 @@ int main(int argc, char * argv[])
 	  char new_file[fileSize];
 		long cnt;
 		char * file_ptr = new_file;
-		for(cnt = 0; cnt < (fileSize/16384) + 1; cnt++)
+		for(cnt = 0; cnt < (fileSize/16384) + 1; ++cnt)
 		{
 		  r = SSL_read(ssl, new_file, fileSize);
 			file_ptr += 16384;
@@ -311,7 +311,7 @@ int main(int argc, char * argv[])
 	    
 	  // send file
 		char * file_ptr = ret;
-		for(cnt = 0; cnt < (len/16384) + 1; cnt++)
+		for(cnt = 0; cnt < (len/16384) + 1; ++cnt)
 		{
 		    r = SSL_write(ssl, (unsigned *)file_ptr, len);
 			file_ptr += 16384;
