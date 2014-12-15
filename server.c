@@ -41,6 +41,8 @@ int main(int argc, char * argv[])
 	pch = strtok(NULL, "=");
 	strcpy(port, pch);
 	printf("Port: %s\n", port);
+	char receive[64] = "receive";
+	char send[64] = "send";
 
 // Begin SSL
 
@@ -94,6 +96,7 @@ int main(int argc, char * argv[])
 	// Ensures OpenSSL doesn't send a certificate to the client
 	SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
 	
+	// Set cipher suite that uses Anonymous Diffie-Hellman key exchange
 	if(SSL_CTX_set_cipher_list(ctx, "ADH-AES256-SHA") != 1)
 	{
 	    printf("Error at SSL_CTX_set_cipher_list()\n");
@@ -186,6 +189,7 @@ int main(int argc, char * argv[])
     // End Hashing the decypted challenge
     
     // Signing the hashed challenge
+    
 	    unsigned char signed_challenge[rsa_size - 11];
 	    int signed_size = RSA_private_encrypt(SHA_DIGEST_LENGTH, hash, signed_challenge, p_key, RSA_PKCS1_PADDING);
 	    if( signed_size == -1)
@@ -197,11 +201,76 @@ int main(int argc, char * argv[])
 	    printf("Signed Challenge: \n");
 	    
     // Sending signed hashed challenge to client
+    
 	    print_hex(signed_challenge, signed_size);
 	    r = SSL_write(ssl, signed_challenge, signed_size);
 	    printf("Bytes sent: %d\n", r);
+	    
     // End sending signed hashed challenge to client
-
+    
+    // Receiving command from client
+	    
+	    char cmd[64];
+	    r = SSL_read(ssl, (unsigned*)cmd, 64);
+	    //printf("Client command: %s\n", cmd);
+	 // Send file to client
+	    char file[64];
+	    char file_size[20];
+	    if(strcmp(cmd, receive) == 0)
+	    {
+	      r = SSL_read(ssl, (unsigned *)file, 64);
+	      printf("Sending %s\n", file);
+	      FILE * file_to_be_sent = fopen(file, "r");
+	      if(!file_to_be_sent)
+		printf("File does not exist!\n");
+	      else
+	      {
+		fseek(file_to_be_sent, 0, SEEK_END);  
+		long len = ftell(file_to_be_sent);
+		char *ret = malloc(len);  
+		fseek(file_to_be_sent, 0, SEEK_SET);  
+		fread(ret, 1, len, file_to_be_sent);  
+		fclose(file_to_be_sent);
+		// send file size to client
+		
+		sprintf(file_size, "%ld", len);
+		//printf("File length: %s\n", file_size);
+		  // send file size
+		r = SSL_write(ssl, (unsigned *)file_size, 20);
+		  // send file
+		r = SSL_write(ssl, (unsigned *)ret, len);
+		if(r < 0)
+		  printf("Error sending file!\n");
+		printf("%s sent!\n", file);
+	      }
+	    }
+	    // Receive file from client
+	    else if(strcmp(cmd, send) == 0)
+	    {
+	      r = SSL_read(ssl, file, 64);
+	      printf("File to receive: %s\n", file);
+	      
+	      // receive file size	      
+	      r = SSL_read(ssl, file_size, 20);
+	      if(file_size[0] != 'n')
+	      {
+		long fileSize = atol(file_size);
+		printf("File length: %s\n", file_size);
+		
+		// Receiving file
+		char new_file[fileSize];
+		r = SSL_read(ssl, new_file, fileSize);
+		
+		// saving file
+		FILE * file_to_be_saved = fopen(file, "w");
+		fwrite(new_file, 1, fileSize, file_to_be_saved);
+		fclose(file_to_be_saved);
+		printf("%s Received!\n", file);
+	      }
+	    }
+	    else
+	      printf("Invalid command received!\n");
+	      
 	    SSL_shutdown(ssl);
 	    SSL_free(ssl);
 
